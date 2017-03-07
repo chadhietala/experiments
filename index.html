@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  <title>Document</title>
+</head>
+<body>
+
+  <script>
+    const CREATE_ELEMENT = 0;
+    const SET_ATTRIBUTE = 1;
+    const APPEND_TEXT = 2;
+    const RETURN = 10;
+    const EXIT = -1;
+
+    class Memory {
+      constructor() {
+        this.strings = [];
+        this.sp = 0;
+        this.ac = null;
+      }
+
+      setString(str) {
+        let i = this.strings.indexOf(str);
+
+        if (this.strings.indexOf(str) > -1) {
+          return i;
+        }
+
+        this.strings.push(str);
+        return this.sp++;
+      }
+
+      getString(addr) {
+        return this.strings[addr];
+      }
+    }
+
+    class VM {
+      constructor(memory) {
+        this.memory = memory;
+        this.program = [];
+        this.pc = 0;
+        this.builder = new Builder(this);
+        this.elementStack = [];
+      }
+
+      load() {
+        let { builder: b } = this;
+
+        for (let i = 0; i < 10000; i++) {
+          b.createElement('div');
+          b.setAttribute('id', 'hello');
+          b.setAttribute('class', 'bye');
+          b.setAttribute('type', 'foo');
+          b.appendText('FOO');
+          b.return();
+          b.createElement('h1');
+          b.appendText('Hello World');
+          b.return();
+        }
+        b.exit();
+      }
+
+      execute() {
+        let op;
+
+        console.time('exectute');
+
+        while (op !== EXIT) {
+          op = this.program[this.pc];
+          OPS[op](this);
+          this.pc++;
+        }
+
+        this.elementStack.forEach((el) => {
+          document.body.appendChild(el);
+        });
+        console.timeEnd('exectute');
+      }
+    }
+
+    class Builder {
+      constructor(vm) {
+        this.vm = vm;
+      }
+
+      appendText(text) {
+        this.vm.program.push(APPEND_TEXT);
+        this.vm.program.push(this.vm.memory.setString(text));
+      }
+
+      createElement(tag) {
+        this.vm.program.push(CREATE_ELEMENT);
+        this.vm.program.push(this.vm.memory.setString(tag));
+      }
+
+      setAttribute(attr, val) {
+        this.vm.program.push(SET_ATTRIBUTE);
+        this.vm.program.push(this.vm.memory.setString(attr));
+        this.vm.program.push(this.vm.memory.setString(val));
+      }
+
+      return(attr, val) {
+        this.vm.program.push(RETURN);
+      }
+
+      exit() {
+        this.vm.program.push(EXIT);
+      }
+    }
+
+    let OPS = new class {
+      [CREATE_ELEMENT](vm) {
+        let tagAddr = vm.program[vm.pc + 1];
+        let tag = vm.memory.getString(tagAddr);
+        vm.memory.ac = document.createElement(tag);
+        vm.pc++;
+      }
+
+      [SET_ATTRIBUTE](vm) {
+        let attrAddr = vm.program[vm.pc + 1];
+        let valAddr = vm.program[vm.pc + 2];
+        let attr = vm.memory.getString(attrAddr);
+        let val = vm.memory.getString(valAddr);
+        vm.memory.ac.setAttribute(attr, val);
+        vm.pc++;
+        vm.pc++;
+      }
+
+      [APPEND_TEXT](vm) {
+        let textAddr = vm.program[vm.pc + 1];
+        let text = vm.memory.getString(textAddr);
+        let textNode = document.createTextNode(text);
+        vm.memory.ac.appendChild(textNode);
+        vm.pc++;
+      }
+
+      [EXIT]() {}
+
+      [RETURN](vm) {
+        let el = vm.memory.ac;
+        vm.memory.ac = null;
+        vm.elementStack.push(el);
+      }
+    }
+
+    let vm = new VM(new Memory());
+
+    vm.load();
+    vm.execute();
+  </script>
+</body>
+</html>
